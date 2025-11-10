@@ -1,20 +1,14 @@
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardData } from '../../types';
 import Button from '../common/Button';
 import GlassmorphismPanel from '../common/GlassmorphismPanel';
+import { GoogleGenAI } from '@google/genai';
 
 interface Step7VideoProps {
   cardData: CardData;
   prevStep: () => void;
   reset: () => void;
-}
-
-interface JobStatus {
-    status: 'queued' | 'processing' | 'complete' | 'error';
-    videoUrl?: string;
-    errorMessage?: string;
 }
 
 const LoadingIcon: React.FC<{className?: string}> = ({className}) => (
@@ -36,23 +30,20 @@ const loadingMessages = [
 
 const Step7Video: React.FC<Step7VideoProps> = ({ cardData, prevStep, reset }) => {
     const [prompt, setPrompt] = useState("A beautiful rose gold envelope on a wooden table, surrounded by soft morning light. It opens with a burst of shimmering confetti to reveal the card inside.");
-    const [jobId, setJobId] = useState<string | null>(null);
-    const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
-    const pollIntervalRef = useRef<number | null>(null);
+    const [videoUrl, setVideoUrl] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [hasApiKey, setHasApiKey] = useState(false);
 
-    const isLoading = jobStatus?.status === 'queued' || jobStatus?.status === 'processing';
-    
-    // Cleanup polling on component unmount
     useEffect(() => {
-        return () => {
-            if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-            }
+        const checkKey = async () => {
+            const hasKey = await window.aistudio.hasSelectedApiKey();
+            setHasApiKey(hasKey);
         };
+        checkKey();
     }, []);
 
-    // Update loading message while processing
     useEffect(() => {
         let interval: number;
         if (isLoading) {
@@ -66,56 +57,98 @@ const Step7Video: React.FC<Step7VideoProps> = ({ cardData, prevStep, reset }) =>
         return () => clearInterval(interval);
     }, [isLoading]);
 
-    const stopPolling = () => {
-        if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
+    const handleSelectKey = async () => {
+        await window.aistudio.openSelectKey();
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setHasApiKey(hasKey);
+    };
+
+    const buildDetailedPrompt = (): string => {
+        let cardDescription = 'The video ends by revealing a greeting card. The card looks like this:';
+
+        // Background
+        if (cardData.backgroundPrompt) {
+            cardDescription += ` The background is artistic and minimalist, in a style of "${cardData.backgroundPrompt}".`;
+        } else if (cardData.background) {
+            cardDescription += ` The background is a solid color: ${cardData.background}.`;
         }
+
+        // Paper Texture
+        if (cardData.paperTexture !== 'matte') {
+            cardDescription += ` The card has a physical texture of ${cardData.paperTexture}.`;
+        }
+
+        // Message
+        const fontStyle = cardData.ink.value.replace('font-', '');
+        cardDescription += ` The main message says "${cardData.message}", written in an elegant ${fontStyle} font.`;
+        if (cardData.messageFoil !== 'none') {
+            cardDescription += ` The text has a shimmering ${cardData.messageFoil} foil effect.`
+        }
+
+        // Stickers
+        if (cardData.elements.length > 0) {
+            cardDescription += " It's decorated with stickers: ";
+            const stickerDescriptions = cardData.elements.map(el => {
+                let stickerDesc = `a sticker of a "${el.prompt}"`;
+                if (el.foil && el.foil !== 'none') {
+                    stickerDesc += ` with a shiny ${el.foil} foil accent`;
+                }
+                return stickerDesc;
+            });
+            cardDescription += stickerDescriptions.join(', ') + '.';
+        }
+
+        return `${prompt}. ${cardDescription} The video should be about 8 seconds long, cinematic, and beautiful.`;
     };
 
     const handleGenerate = async () => {
         if (!prompt) return;
-
-        setJobStatus({ status: 'queued' }); // Set initial status
+        setIsLoading(true);
+        setError(null);
+        setVideoUrl(null);
         
         try {
-            const response = await fetch('/api/request-video', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cardData, prompt })
-            });
-            if (!response.ok) throw new Error('Failed to submit video request.');
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+            const detailedPrompt = buildDetailedPrompt();
 
-            const { jobId: newJobId } = await response.json();
-            setJobId(newJobId);
-
-            // Start polling
-            pollIntervalRef.current = window.setInterval(async () => {
-                try {
-                    const statusRes = await fetch(`/api/video-status/${newJobId}`);
-                    if (statusRes.ok) {
-                        const statusData: JobStatus = await statusRes.json();
-                        setJobStatus(statusData);
-
-                        if (statusData.status === 'complete' || statusData.status === 'error') {
-                            stopPolling();
-                        }
-                    } else if (statusRes.status === 404) {
-                        // Job not found yet, might be a slight delay. Continue polling for a bit.
-                    } else {
-                        // If polling fails consistently, stop.
-                        throw new Error('Failed to get job status.');
-                    }
-                } catch (pollError) {
-                    console.error(pollError);
-                    setJobStatus({ status: 'error', errorMessage: 'Could not retrieve video status.' });
-                    stopPolling();
+            let operation = await ai.models.generateVideos({
+                model: 'veo-3.1-fast-generate-preview',
+                prompt: detailedPrompt,
+                config: {
+                    numberOfVideos: 1,
+                    resolution: '720p',
+                    aspectRatio: cardData.canvas.aspectRatio === '1:1' ? '1:1' : cardData.canvas.aspectRatio === '3:4' ? '9:16' : '16:9',
                 }
-            }, 5000); // Poll every 5 seconds
+            });
+
+            while (!operation.done) {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                operation = await ai.operations.getVideosOperation({ operation: operation });
+            }
+
+            if (operation.error) {
+                 throw new Error(operation.error.message || 'An unknown error occurred during video generation.');
+            }
+
+            const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+            if (downloadLink) {
+                 const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+                 const blob = await response.blob();
+                 setVideoUrl(URL.createObjectURL(blob));
+            } else {
+                throw new Error('Video generation finished, but no download link was provided.');
+            }
 
         } catch (e: any) {
             console.error(e);
-            setJobStatus({ status: 'error', errorMessage: e.message });
+            if (e.message.includes("Requested entity was not found")) {
+                setError("Your API Key is invalid. Please select a valid key and try again.");
+                setHasApiKey(false);
+            } else {
+                setError(`An error occurred: ${e.message}`);
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -125,37 +158,38 @@ const Step7Video: React.FC<Step7VideoProps> = ({ cardData, prevStep, reset }) =>
                 <div className="text-center">
                     <LoadingIcon className="mx-auto w-12 h-12 border-4"/>
                     <p className="mt-4 font-medium text-lg text-charcoal-ink/80">{loadingMessage}</p>
-                    <p className="text-sm text-charcoal-ink/60 mt-1">This can take a few minutes. You can leave and come back.</p>
+                    <p className="text-sm text-charcoal-ink/60 mt-1">This can take a few minutes. Please stay on this page.</p>
                 </div>
             )
         }
-        if (jobStatus?.status === 'complete' && jobStatus.videoUrl) {
+        if (videoUrl) {
             return (
                 <div className="w-full">
                     <h3 className="font-serif text-3xl text-center mb-4">Your Magic Reveal is Ready!</h3>
-                    <video src={jobStatus.videoUrl} controls autoPlay loop className="w-full rounded-lg shadow-card aspect-video"></video>
+                    <video src={videoUrl} controls autoPlay loop className="w-full rounded-lg shadow-card aspect-video"></video>
                     <div className="mt-6 flex justify-center space-x-4">
-                        <a href={jobStatus.videoUrl} download="kairo-pi-reveal.mp4">
+                        <a href={videoUrl} download="kairo-pi-reveal.mp4">
                             <Button variant="primary">Download Video</Button>
                         </a>
                     </div>
                 </div>
             )
         }
-         if (jobStatus?.status === 'error') {
-             return (
-                 <div className="text-center max-w-md mx-auto">
-                    <h3 className="font-medium text-lg text-red-600">Video Generation Failed</h3>
-                    <p className="text-sm text-charcoal-ink/60 mt-2 bg-red-100 p-3 rounded-lg">
-                       {jobStatus.errorMessage || 'An unknown error occurred.'}
+        if (!hasApiKey) {
+            return (
+                <div className="text-center max-w-md mx-auto">
+                    <h3 className="font-medium text-lg">API Key Required for Video</h3>
+                    <p className="text-sm text-charcoal-ink/60 mt-2">
+                        This feature uses the Veo model, which requires a Project API key with the Gemini API enabled. Please select your key to continue.
+                        <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-kairo-gold-dark underline ml-1">Learn about billing</a>
                     </p>
+                    {error && <p className="mt-4 text-sm text-red-600 bg-red-100 p-3 rounded-lg">{error}</p>}
                     <div className="mt-6">
-                        <Button onClick={() => setJobStatus(null)}>Try Again</Button>
+                        <Button onClick={handleSelectKey}>Select API Key</Button>
                     </div>
                 </div>
-             )
-         }
-
+            )
+        }
 
         return (
             <>
@@ -173,8 +207,9 @@ const Step7Video: React.FC<Step7VideoProps> = ({ cardData, prevStep, reset }) =>
                         className="w-full mt-2 p-3 bg-white/80 text-charcoal-ink rounded-lg border border-charcoal-ink/10 focus:outline-none focus:ring-2 focus:ring-kairo-gold"
                     />
                 </div>
+                {error && <p className="mt-4 text-sm text-red-600 bg-red-100 p-3 rounded-lg">{error}</p>}
                 <div className="mt-8 flex justify-center">
-                    <Button onClick={handleGenerate} variant="primary">
+                    <Button onClick={handleGenerate} variant="primary" disabled={isLoading}>
                         Generate Video
                     </Button>
                 </div>

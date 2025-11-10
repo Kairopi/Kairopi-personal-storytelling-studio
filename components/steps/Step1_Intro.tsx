@@ -1,15 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import Button from '../common/Button';
 
 interface Step1IntroProps {
   nextStep: () => void;
-}
-
-interface CardOfTheDayData {
-    quote: string;
-    imageUrl: string;
 }
 
 const containerVariants = {
@@ -36,41 +31,26 @@ const wordVariants = {
   },
 };
 
-const CardOfTheDay: React.FC<{ cardData: CardOfTheDayData }> = ({ cardData }) => (
-    <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: 'easeOut', delay: 1.8 }}
-        className="absolute bottom-6 right-6 w-64 bg-white/60 backdrop-blur-xl border border-white/20 rounded-xl shadow-card p-4 flex flex-col items-center text-center"
-    >
-        <p className="text-xs font-medium text-kairo-gold tracking-widest uppercase">Inspiration</p>
-        <div 
-            className="w-full h-32 rounded-lg mt-2 bg-cover bg-center" 
-            style={{ backgroundImage: `url(${cardData.imageUrl})` }}
-        />
-        <p className="font-serif text-sm mt-3 text-charcoal-ink/80">"{cardData.quote}"</p>
-    </motion.div>
-);
-
+const orbColors = ['#E6E6FA', '#FFF0F5', '#FDFBF6', '#D4AF37'];
+const orbs = Array.from({ length: 15 }).map((_, i) => {
+    const size = Math.random() * 120 + 40; // size between 40 and 160
+    return {
+        id: i,
+        size,
+        style: {
+            width: `${size}px`,
+            height: `${size}px`,
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 40 + 80}%`, // Start from below the viewport
+            backgroundColor: orbColors[i % orbColors.length],
+        },
+        duration: Math.random() * 20 + 15, // 15 to 35 seconds
+        delay: Math.random() * 7,
+    };
+});
 
 const Step1Intro: React.FC<Step1IntroProps> = ({ nextStep }) => {
   const title = "Your Creative Partner for Life's Moments";
-  const [cardOfTheDay, setCardOfTheDay] = useState<CardOfTheDayData | null>(null);
-
-  useEffect(() => {
-    const fetchCard = async () => {
-        try {
-            const response = await fetch('/api/card-of-the-day');
-            if (response.ok && response.status !== 204) {
-                const data = await response.json();
-                setCardOfTheDay(data);
-            }
-        } catch (error) {
-            console.error("Could not fetch card of the day:", error);
-        }
-    };
-    fetchCard();
-  }, []);
 
   return (
     <motion.div
@@ -81,6 +61,30 @@ const Step1Intro: React.FC<Step1IntroProps> = ({ nextStep }) => {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className="relative text-center flex flex-col items-center w-full h-full justify-center"
     >
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        {orbs.map(orb => (
+          <motion.div
+            key={orb.id}
+            className="absolute rounded-full blur-3xl"
+            style={orb.style}
+            initial={{ y: 0, opacity: 0 }}
+            animate={{
+              y: '-400%',
+              opacity: [0, 0.1, 0.2, 0.1, 0],
+              scale: [1, 1.2, 1],
+              x: [`${Math.random() * 40 - 20}%`, `${Math.random() * 40 - 20}%`], // Gentle side to side drift
+            }}
+            transition={{
+              duration: orb.duration,
+              delay: orb.delay,
+              repeat: Infinity,
+              repeatType: 'loop',
+              ease: 'linear',
+            }}
+          />
+        ))}
+      </div>
+
       <motion.h2
         variants={containerVariants}
         className="font-serif text-5xl md:text-7xl font-medium max-w-3xl leading-tight text-charcoal-ink flex flex-wrap justify-center"
@@ -89,7 +93,7 @@ const Step1Intro: React.FC<Step1IntroProps> = ({ nextStep }) => {
           <motion.span
             key={index}
             variants={wordVariants}
-            className="inline-block mr-4 mt-2"
+            className="inline-block mr-4 mt-2" // using margin for spacing
           >
             {word}
           </motion.span>
@@ -115,8 +119,6 @@ const Step1Intro: React.FC<Step1IntroProps> = ({ nextStep }) => {
           Start Creating
         </Button>
       </motion.div>
-
-      {cardOfTheDay && <CardOfTheDay cardData={cardOfTheDay} />}
     </motion.div>
   );
 };
