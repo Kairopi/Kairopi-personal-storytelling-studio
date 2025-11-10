@@ -1,0 +1,18 @@
+{
+  "name": "kairopi-service-api",
+  "version": "1.0.0",
+  "description": "Backend-for-frontend API for KairoPi Studio, acting as a Cloud Run Service.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^7.8.0",
+    "@google-cloud/pubsub": "^4.5.0",
+    "@google-cloud/storage": "^7.11.0",
+    "@google/genai": "^1.29.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "body-parser": "^1.20.2"
+  }
+}

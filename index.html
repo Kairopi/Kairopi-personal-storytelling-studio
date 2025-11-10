@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KairoPi: Personal Storytelling Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'ethereal-cream': '#FDFBF6',
+              'charcoal-ink': '#2C3539',
+              'kairo-gold': '#D4AF37',
+              'kairo-gold-dark': '#C69A2E',
+              'deep-teal': '#004D40',
+              'soft-lavender': '#E6E6FA',
+              'blush-pink': '#FFF0F5',
+            },
+            fontFamily: {
+              sans: ['Satoshi', 'sans-serif'],
+              serif: ['Canela Display', 'Playfair Display', 'serif'],
+              script: ['Dancing Script', 'cursive'],
+            },
+            boxShadow: {
+              'subtle': '0 4px 12px rgba(0,0,0,0.05)',
+              'card': '0 10px 30px rgba(0,0,0,0.07)',
+            },
+            transitionTimingFunction: {
+              'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Dancing+Script:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      /* Fallback for Canela Display - a real project would host this font */
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
+      .font-serif {
+        font-family: 'Canela Display', 'Playfair Display', serif;
+      }
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      /* Foil effect */
+      @keyframes foil-shine {
+        0% { background-position: -200% center; }
+        100% { background-position: 200% center; }
+      }
+      .foil-base {
+        background-size: 300% auto;
+        animation: foil-shine 4s linear infinite;
+      }
+      .foil-gold { background-image: linear-gradient(110deg, #d4af37, #f0e68c, #b8860b, #f0e68c, #d4af37); }
+      .foil-silver { background-image: linear-gradient(110deg, #c0c0c0, #ffffff, #a9a9a9, #ffffff, #c0c0c0); }
+      .foil-rose-gold { background-image: linear-gradient(110deg, #e6a4b4, #f7cac9, #b76e79, #f7cac9, #e6a4b4); }
+
+      .foil-text {
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent !important;
+      }
+      
+      /* Paper Textures */
+      .texture-overlay {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 1;
+      }
+      .texture-linen {
+          mix-blend-mode: multiply;
+          background-image: linear-gradient(0deg, rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+          background-size: 3px 3px;
+          opacity: 0.3;
+      }
+      .texture-recycled {
+          mix-blend-mode: overlay;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23f)' opacity='0.07'/%3E%3C/svg%3E");
+          opacity: 0.7;
+      }
+      .texture-watercolor {
+          mix-blend-mode: screen;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.01' numOctaves='3' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='2'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23f)' opacity='0.2'/%3E%3C/svg%3E");
+          opacity: 0.4;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
+    "react-rnd": "https://aistudiocdn.com/react-rnd@^10.5.2"
+  }
+}
+</script>
+</head>
+  <body class="bg-ethereal-cream">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
